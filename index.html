@@ -11,16 +11,37 @@ body {
   font-family: monospace;
   padding: 20px;
 }
+
 #terminal {
-  white-space: pre-line;
+  white-space: pre-wrap;
+  line-height: 1.4;
 }
-input {
+
+.input-line {
+  display: flex;
+  align-items: center;
+}
+
+#userInput {
   background: black;
-  color: #00ff66;
+  color: red;
   border: none;
   outline: none;
   font-family: monospace;
-  width: 100%;
+  font-size: 1.4em;
+  width: auto;
+}
+
+.cursor {
+  color: red;
+  margin-left: 4px;
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
 }
 </style>
 
@@ -32,66 +53,51 @@ input {
 <body>
 
 <div id="terminal"></div>
-<input id="input" autofocus autocomplete="off">
+
+<div class="input-line">
+  <input id="userInput" autofocus autocomplete="off">
+  <span class="cursor">█</span>
+</div>
 
 <script>
-// 🔐 FIREBASE CONFIG — WSTAW SWOJE DANE
+// 🔐 FIREBASE CONFIG
 const firebaseConfig = {
-    apiKey: "AIzaSyB_llniMN_IdBgfPt19uJnxKH807b-5XB0",
-    authDomain: "terminal-kryzysowy.firebaseapp.com",
-    databaseURL: "https://terminal-kryzysowy-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "terminal-kryzysowy",
-    storageBucket: "terminal-kryzysowy.firebasestorage.app",
-    messagingSenderId: "375191258633",
-    appId: "1:375191258633:web:902b38af58abdb2a629ad8"
-  };
+  apiKey: "AIzaSyB_llniMN_IdBgfPt19uJnxKH807b-5XB0",
+  authDomain: "terminal-kryzysowy.firebaseapp.com",
+  databaseURL: "https://terminal-kryzysowy-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "terminal-kryzysowy",
+  storageBucket: "terminal-kryzysowy.firebasestorage.app",
+  messagingSenderId: "375191258633",
+  appId: "1:375191258633:web:902b38af58abdb2a629ad8"
+};
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 🧠 DEFINICJA ETAPÓW
+// 🧠 ETAPY
 const steps = [
-  {
-    text: "TERMINAL KRYZYSOWY\nLokalizacja: Osiedla Bończyk\nWpisz autoryzowaną nazwę użytkownika:",
-    answer: "OPERATOR"
-  },
-  {
-    text: "Rozpoczęto proces zarządzania kryzysowego.\nProszę wpisać ID strefy:",
-    answer: "A"
-  },
-  {
-    text: "Wybrano strefę A.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy A:",
-    answer: "ALFA32"
-  },
-  {
-    text: "Strefa A zabezpieczona.\nProszę wpisać ID kolejnej strefy:",
-    answer: "B"
-  },
-  {
-    text: "Wybrano strefę B.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy B:",
-    answer: "BRAVO"
-  },
-  {
-    text: "Strefa B zabezpieczona.\nProszę wpisać ID kolejnej strefy:",
-    answer: "C"
-  },
-  {
-    text: "Wybrano strefę C.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy C:",
-    answer: "CHARLIE"
-  },
-  {
-    text: "Strefa C zabezpieczona.\nProszę wpisać ID schronu:",
-    answer: "51H"
-  },
-  {
-    text: "Wybrano schron 51H.\nProszę wpisać hasło aktywacyjne do zabezpieczenia schronu 51H:",
-    answer: "OMEGA"
-  }
+  { text: "TERMINAL KRYZYSOWY\nLokalizacja: Osiedla Bończyk\nWpisz autoryzowaną nazwę użytkownika:", answer: "OPERATOR" },
+  { text: "\nRozpoczęto proces zarządzania kryzysowego.\nProszę wpisać ID strefy:", answer: "A" },
+  { text: "\nWybrano strefę A.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy A:", answer: "ALFA32" },
+  { text: "\nStrefa A zabezpieczona.\nProszę wpisać ID kolejnej strefy:", answer: "B" },
+  { text: "\nWybrano strefę B.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy B:", answer: "BRAVO" },
+  { text: "\nStrefa B zabezpieczona.\nProszę wpisać ID kolejnej strefy:", answer: "C" },
+  { text: "\nWybrano strefę C.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy C:", answer: "CHARLIE" },
+  { text: "\nStrefa C zabezpieczona.\nProszę wpisać ID schronu:", answer: "51H" },
+  { text: "\nWybrano schron 51H.\nProszę wpisać hasło aktywacyjne do zabezpieczenia schronu 51H:", answer: "OMEGA" }
 ];
 
 let currentStep = 0;
+let failedAttempts = 0;
+let locked = false;
+
 const terminal = document.getElementById("terminal");
-const input = document.getElementById("input");
+const input = document.getElementById("userInput");
+
+function log(text) {
+  terminal.innerText += text + "\n";
+  terminal.scrollTop = terminal.scrollHeight;
+}
 
 function updateFirebase(status) {
   db.ref("game").set({
@@ -101,33 +107,47 @@ function updateFirebase(status) {
   });
 }
 
-function showText(text) {
-  terminal.innerText = text;
-}
-
-showText(steps[0].text);
+// START
+log(steps[0].text);
 updateFirebase("START");
 
 input.addEventListener("keydown", function(e) {
-  if (e.key === "Enter") {
-    if (input.value.toUpperCase() === steps[currentStep].answer) {
+  if (e.key === "Enter" && !locked) {
+    const value = input.value.toUpperCase();
+    log("\n> " + value);
+    input.value = "";
+
+    if (value === steps[currentStep].answer) {
+      failedAttempts = 0;
       currentStep++;
       updateFirebase("STEP " + currentStep);
-      input.value = "";
 
       if (currentStep < steps.length) {
-        showText(steps[currentStep].text);
+        log(steps[currentStep].text);
       } else {
-        showText(
-          "SCHRON 51H ZABEZPIECZONY.\n\n" +
-          "KOD DO UJAWNIENIA PAKIETU:\nXYZ"
-        );
+        log("\nSCHRON 51H ZABEZPIECZONY.");
+        log("\nKOD DO UJAWNIENIA PAKIETU:");
+        log("XYZ");
         updateFirebase("FINISH");
         input.disabled = true;
       }
     } else {
-      terminal.innerText += "\n\nBŁĄD AUTORYZACJI. SPRÓBUJ PONOWNIE.";
-      input.value = "";
+      failedAttempts++;
+      log("\nBŁĄD AUTORYZACJI.");
+
+      if (failedAttempts >= 3) {
+        locked = true;
+        log("\nZBYT WIELE NIEUDANYCH PRÓB.");
+        log("TERMINAL ZABLOKOWANY NA 30 SEKUND.");
+        updateFirebase("LOCKED");
+
+        setTimeout(() => {
+          locked = false;
+          failedAttempts = 0;
+          log("\nBLOKADA ZNIESIONA. MOŻNA KONTYNUOWAĆ.");
+          updateFirebase("UNLOCKED");
+        }, 30000);
+      }
     }
   }
 });
