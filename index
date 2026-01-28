@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>TERMINAL KRYZYSOWY</title>
+
+<style>
+body {
+  background: black;
+  color: #00ff66;
+  font-family: monospace;
+  padding: 20px;
+}
+#terminal {
+  white-space: pre-line;
+}
+input {
+  background: black;
+  color: #00ff66;
+  border: none;
+  outline: none;
+  font-family: monospace;
+  width: 100%;
+}
+</style>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+
+<body>
+
+<div id="terminal"></div>
+<input id="input" autofocus autocomplete="off">
+
+<script>
+// 🔐 FIREBASE CONFIG — WSTAW SWOJE DANE
+const firebaseConfig = {
+    apiKey: "AIzaSyB_llniMN_IdBgfPt19uJnxKH807b-5XB0",
+    authDomain: "terminal-kryzysowy.firebaseapp.com",
+    databaseURL: "https://terminal-kryzysowy-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "terminal-kryzysowy",
+    storageBucket: "terminal-kryzysowy.firebasestorage.app",
+    messagingSenderId: "375191258633",
+    appId: "1:375191258633:web:902b38af58abdb2a629ad8"
+  };
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// 🧠 DEFINICJA ETAPÓW
+const steps = [
+  {
+    text: "TERMINAL KRYZYSOWY\nLokalizacja: Osiedla Bończyk\nWpisz autoryzowaną nazwę użytkownika:",
+    answer: "OPERATOR"
+  },
+  {
+    text: "Rozpoczęto proces zarządzania kryzysowego.\nProszę wpisać ID strefy:",
+    answer: "A"
+  },
+  {
+    text: "Wybrano strefę A.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy A:",
+    answer: "ALFA32"
+  },
+  {
+    text: "Strefa A zabezpieczona.\nProszę wpisać ID kolejnej strefy:",
+    answer: "B"
+  },
+  {
+    text: "Wybrano strefę B.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy B:",
+    answer: "BRAVO"
+  },
+  {
+    text: "Strefa B zabezpieczona.\nProszę wpisać ID kolejnej strefy:",
+    answer: "C"
+  },
+  {
+    text: "Wybrano strefę C.\nProszę wpisać hasło aktywacyjne do zabezpieczenia strefy C:",
+    answer: "CHARLIE"
+  },
+  {
+    text: "Strefa C zabezpieczona.\nProszę wpisać ID schronu:",
+    answer: "51H"
+  },
+  {
+    text: "Wybrano schron 51H.\nProszę wpisać hasło aktywacyjne do zabezpieczenia schronu 51H:",
+    answer: "OMEGA"
+  }
+];
+
+let currentStep = 0;
+const terminal = document.getElementById("terminal");
+const input = document.getElementById("input");
+
+function updateFirebase(status) {
+  db.ref("game").set({
+    step: currentStep,
+    status: status,
+    timestamp: new Date().toLocaleTimeString()
+  });
+}
+
+function showText(text) {
+  terminal.innerText = text;
+}
+
+showText(steps[0].text);
+updateFirebase("START");
+
+input.addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    if (input.value.toUpperCase() === steps[currentStep].answer) {
+      currentStep++;
+      updateFirebase("STEP " + currentStep);
+      input.value = "";
+
+      if (currentStep < steps.length) {
+        showText(steps[currentStep].text);
+      } else {
+        showText(
+          "SCHRON 51H ZABEZPIECZONY.\n\n" +
+          "KOD DO UJAWNIENIA PAKIETU:\nXYZ"
+        );
+        updateFirebase("FINISH");
+        input.disabled = true;
+      }
+    } else {
+      terminal.innerText += "\n\nBŁĄD AUTORYZACJI. SPRÓBUJ PONOWNIE.";
+      input.value = "";
+    }
+  }
+});
+</script>
+
+</body>
+</html>
